@@ -45,6 +45,7 @@ func Setup(cfg *config.Config) (r bit.Router, log logger.Logger, err error) {
 	r.GET("/healthz", h.Health)
 	r.GET("/readyz", h.Ready)
 	r.GET("/info", h.Info)
+	r.GET("/metrics", h.MetricsFunc())
 
 	return
 }

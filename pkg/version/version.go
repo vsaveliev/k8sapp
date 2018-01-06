@@ -11,4 +11,6 @@ var (
 	REPO = "UNKNOWN"
 	// COMMIT returns the short sha from git
 	COMMIT = "UNKNOWN"
+	// BUILD_TIMESTAMP returns the time of current build
+	BUILD_TIMESTAMP = "UNKNOWN"
 )

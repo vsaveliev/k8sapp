@@ -27,6 +27,7 @@ CONTAINER_IMAGE?=${REGISTRY}/${APP}
 CONTAINER_NAME?=${APP}-${NAMESPACE}
 
 REPO_INFO=$(shell git config --get remote.origin.url)
+BUILD_TIMESTAMP=$(shell date +%s)
 
 ifndef COMMIT
 	COMMIT := git-$(shell git rev-parse --short HEAD)
@@ -45,7 +46,7 @@ vendor: clean bootstrap
 build: vendor test certs
 	@echo "+ $@"
 	@CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build -a -installsuffix cgo \
-		-ldflags "-s -w -X ${PROJECT}/pkg/version.RELEASE=${RELEASE} -X ${PROJECT}/pkg/version.COMMIT=${COMMIT} -X ${PROJECT}/pkg/version.REPO=${REPO_INFO}" \
+		-ldflags "-s -w -X ${PROJECT}/pkg/version.RELEASE=${RELEASE} -X ${PROJECT}/pkg/version.COMMIT=${COMMIT} -X ${PROJECT}/pkg/version.REPO=${REPO_INFO} -X ${PROJECT}/pkg/version.BUILD_TIMESTAMP=${BUILD_TIMESTAMP}" \
 		-o bin/${GOOS}-${GOARCH}/${APP} ${PROJECT}/cmd
 	docker build --pull -t $(CONTAINER_IMAGE):$(RELEASE) .
 

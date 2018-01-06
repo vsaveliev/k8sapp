@@ -7,8 +7,10 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/takama/bit"
 	// Alternative of the Bit router with the same Router interface
 	// "github.com/takama/k8sapp/pkg/router/httprouter"
@@ -49,9 +51,14 @@ func New(logger logger.Logger, config *config.Config) *Handler {
 // Base handler implements middleware logic
 func (h *Handler) Base(handle func(bit.Control)) func(bit.Control) {
 	return func(c bit.Control) {
+		if h.isServiceRoute(c) {
+			handle(c)
+			return
+		}
+
 		timer := time.Now()
 		handle(c)
-		h.countDuration(timer)
+		h.countDuration(c, timer)
 		h.collectCodes(c)
 	}
 }
@@ -62,19 +69,25 @@ func (h *Handler) Root(c bit.Control) {
 	c.Body(fmt.Sprintf("%s v%s", config.SERVICENAME, version.RELEASE))
 }
 
-func (h *Handler) countDuration(timer time.Time) {
-	if !timer.IsZero() {
-		h.stats.requestsCount++
-		took := time.Now()
-		duration := took.Sub(timer)
-		h.stats.totalDuration += duration
-		if duration > h.stats.maxDuration {
-			h.stats.maxDuration = duration
-		}
-		h.stats.averageDuration = h.stats.totalDuration / h.stats.requestsCount
-		h.stats.requests.Duration.Max = h.stats.maxDuration.String()
-		h.stats.requests.Duration.Average = h.stats.averageDuration.String()
+func (h *Handler) countDuration(c bit.Control, timer time.Time) {
+	if timer.IsZero() {
+		return
 	}
+
+	h.stats.requestsCount++
+	took := time.Now()
+	duration := took.Sub(timer)
+	h.stats.totalDuration += duration
+	if duration > h.stats.maxDuration {
+		h.stats.maxDuration = duration
+	}
+	h.stats.averageDuration = h.stats.totalDuration / h.stats.requestsCount
+	h.stats.requests.Duration.Max = h.stats.maxDuration.String()
+	h.stats.requests.Duration.Average = h.stats.averageDuration.String()
+
+	totalDuration.With(prometheus.Labels{
+		"status": fmt.Sprintf("%d", c.GetCode()),
+	}).Observe(duration.Seconds())
 }
 
 func (h *Handler) collectCodes(c bit.Control) {
@@ -89,4 +102,19 @@ func (h *Handler) collectCodes(c bit.Control) {
 			}
 		}
 	}
+
+	totalCounter.With(prometheus.Labels{
+		"status": fmt.Sprintf("%d", c.GetCode()),
+	}).Inc()
+}
+
+func (h *Handler) isServiceRoute(c bit.Control) bool {
+	path := strings.TrimRight(c.Request().URL.Path, "/")
+
+	switch {
+	case path == "/info", path == "/healthz", path == "/readyz", path == "/metrics":
+		return true
+	}
+
+	return false
 }
