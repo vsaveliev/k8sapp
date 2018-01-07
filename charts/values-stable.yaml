@@ -99,6 +99,13 @@ service:
   ##
   name: k8sapp
   
+  ## Service annotations (e.g. Prometheus annotations)
+  ##
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '8080'
+    prometheus.io/probe: 'true'
+
   ## Service Type
   ## For minikube, set this to NodePort, elsewhere use ClusterIP
   ##
